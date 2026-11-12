@@ -1,0 +1,1305 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spotify Hit Analysis – Thuyết trình Nhóm 4</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0b0f19;
+  --bg2: #121826;
+  --bg3: #1a2234;
+  --card: #1e293b;
+  --border: #334155;
+  --text: #e2e8f0;
+  --muted: #94a3b8;
+  --accent: #1db954;
+  --accent2: #1ed760;
+  --blue: #3b82f6;
+  --purple: #a78bfa;
+  --orange: #f59e0b;
+  --red: #ef4444;
+  --pink: #ec4899;
+  --cyan: #22d3ee;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+/* Sidebar nav */
+.sidebar {
+  position: fixed; left: 0; top: 0; bottom: 0; width: 260px;
+  background: var(--bg2); border-right: 1px solid var(--border);
+  padding: 20px 0; overflow-y: auto; z-index: 100;
+  transition: transform .3s;
+}
+.sidebar .logo {
+  padding: 0 20px 20px; border-bottom: 1px solid var(--border);
+  margin-bottom: 12px;
+}
+.sidebar .logo h1 {
+  font-size: 15px; font-weight: 800; color: var(--accent);
+  letter-spacing: -.3px;
+}
+.sidebar .logo p { font-size: 11px; color: var(--muted); margin-top: 4px; }
+.nav-item {
+  display: block; padding: 10px 20px; color: var(--muted);
+  text-decoration: none; font-size: 13px; font-weight: 500;
+  border-left: 3px solid transparent; transition: all .15s;
+}
+.nav-item:hover, .nav-item.active {
+  color: var(--text); background: var(--bg3);
+  border-left-color: var(--accent);
+}
+.nav-item .num {
+  display: inline-block; width: 22px; height: 22px; line-height: 22px;
+  text-align: center; border-radius: 6px; background: var(--bg3);
+  font-size: 11px; font-weight: 700; margin-right: 8px; color: var(--accent);
+}
+/* Main */
+.main { margin-left: 260px; min-height: 100vh; }
+.slide {
+  min-height: 100vh; padding: 40px 48px 60px;
+  border-bottom: 1px solid var(--border);
+  display: none;
+}
+.slide.active { display: block; animation: fadeIn .35s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+
+.slide-header {
+  display: flex; align-items: center; gap: 16px; margin-bottom: 28px;
+}
+.slide-badge {
+  background: linear-gradient(135deg, var(--accent), #0d9488);
+  color: #000; font-weight: 800; font-size: 12px;
+  padding: 6px 14px; border-radius: 999px; letter-spacing: .5px;
+}
+.slide h2 {
+  font-size: 28px; font-weight: 800; letter-spacing: -.5px;
+}
+.slide h3 {
+  font-size: 18px; font-weight: 700; margin: 28px 0 12px;
+  color: var(--accent2);
+}
+.slide h4 {
+  font-size: 15px; font-weight: 600; margin: 18px 0 8px; color: var(--cyan);
+}
+
+/* Cards */
+.grid { display: grid; gap: 16px; margin: 16px 0; }
+.grid-2 { grid-template-columns: 1fr 1fr; }
+.grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+.grid-4 { grid-template-columns: repeat(4, 1fr); }
+@media (max-width: 1100px) {
+  .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+  .sidebar { transform: translateX(-100%); }
+  .main { margin-left: 0; }
+}
+.card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 14px; padding: 20px;
+}
+.card.highlight {
+  border-color: var(--accent);
+  background: linear-gradient(145deg, #1a2e22, var(--card));
+}
+.stat-value {
+  font-size: 32px; font-weight: 800; color: var(--accent2);
+  letter-spacing: -1px; line-height: 1.1;
+}
+.stat-label { font-size: 12px; color: var(--muted); margin-top: 4px; font-weight: 500; }
+
+/* Tables */
+table {
+  width: 100%; border-collapse: collapse; font-size: 13px;
+  margin: 12px 0;
+}
+th {
+  background: var(--bg3); color: var(--muted); font-weight: 600;
+  text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border);
+  font-size: 11px; text-transform: uppercase; letter-spacing: .4px;
+}
+td {
+  padding: 10px 12px; border-bottom: 1px solid var(--border);
+}
+tr:hover td { background: rgba(29,185,84,.06); }
+.num-cell { font-family: 'JetBrains Mono', monospace; font-weight: 500; }
+.good { color: var(--accent2); font-weight: 700; }
+.warn { color: var(--orange); font-weight: 700; }
+.bad { color: var(--red); font-weight: 700; }
+
+/* Code blocks */
+.code-block {
+  background: #0d1117; border: 1px solid #30363d; border-radius: 10px;
+  padding: 14px 16px; margin: 12px 0; overflow-x: auto;
+  font-family: 'JetBrains Mono', monospace; font-size: 12.5px;
+  line-height: 1.55; color: #e6edf3; position: relative;
+}
+.code-block .lang {
+  position: absolute; top: 8px; right: 12px;
+  font-size: 10px; color: #8b949e; text-transform: uppercase;
+}
+.kw { color: #ff7b72; }
+.fn { color: #d2a8ff; }
+.str { color: #a5d6ff; }
+.cmt { color: #8b949e; font-style: italic; }
+.num { color: #79c0ff; }
+
+/* Script box */
+.script-box {
+  background: linear-gradient(135deg, #1e1b4b, #1e293b);
+  border: 1px solid #4c1d95; border-left: 4px solid var(--purple);
+  border-radius: 10px; padding: 16px 18px; margin: 16px 0;
+  font-size: 14px; line-height: 1.7;
+}
+.script-box .label {
+  font-size: 11px; font-weight: 700; color: var(--purple);
+  text-transform: uppercase; letter-spacing: .8px; margin-bottom: 8px;
+  display: flex; align-items: center; gap: 6px;
+}
+.script-box .label::before { content: '🎤'; }
+
+/* Tip / warning */
+.tip {
+  background: rgba(29,185,84,.1); border: 1px solid rgba(29,185,84,.3);
+  border-radius: 10px; padding: 14px 16px; margin: 12px 0;
+  font-size: 13.5px;
+}
+.tip strong { color: var(--accent2); }
+.warn-box {
+  background: rgba(245,158,11,.1); border: 1px solid rgba(245,158,11,.35);
+  border-radius: 10px; padding: 14px 16px; margin: 12px 0;
+  font-size: 13.5px;
+}
+.warn-box strong { color: var(--orange); }
+
+/* Chart containers */
+.chart-wrap {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 14px; padding: 16px; margin: 12px 0;
+  position: relative;
+}
+.chart-wrap canvas { max-height: 320px; }
+.chart-title {
+  font-size: 13px; font-weight: 600; color: var(--muted);
+  margin-bottom: 10px;
+}
+
+/* Progress / nav controls */
+.controls {
+  position: fixed; bottom: 24px; right: 32px; z-index: 200;
+  display: flex; gap: 10px; align-items: center;
+}
+.btn {
+  background: var(--accent); color: #000; border: none;
+  font-weight: 700; font-size: 13px; padding: 12px 20px;
+  border-radius: 999px; cursor: pointer; transition: all .15s;
+  font-family: inherit;
+}
+.btn:hover { background: var(--accent2); transform: scale(1.03); }
+.btn.secondary {
+  background: var(--bg3); color: var(--text); border: 1px solid var(--border);
+}
+.btn.secondary:hover { background: var(--border); }
+.page-ind {
+  background: var(--bg2); border: 1px solid var(--border);
+  padding: 8px 14px; border-radius: 999px; font-size: 12px;
+  font-weight: 600; color: var(--muted);
+}
+
+/* Cover */
+.cover {
+  min-height: 100vh; display: flex; flex-direction: column;
+  justify-content: center; align-items: flex-start;
+  background:
+    radial-gradient(ellipse at 20% 50%, rgba(29,185,84,.15), transparent 50%),
+    radial-gradient(ellipse at 80% 20%, rgba(59,130,246,.12), transparent 40%),
+    var(--bg);
+}
+.cover h1 {
+  font-size: 48px; font-weight: 800; letter-spacing: -1.5px;
+  line-height: 1.15; margin-bottom: 12px;
+}
+.cover h1 span { color: var(--accent); }
+.cover .subtitle { font-size: 18px; color: var(--muted); margin-bottom: 32px; max-width: 560px; }
+.cover .meta {
+  display: flex; gap: 24px; flex-wrap: wrap; margin-top: 24px;
+}
+.cover .meta-item {
+  background: var(--card); border: 1px solid var(--border);
+  padding: 12px 18px; border-radius: 10px; font-size: 13px;
+}
+.cover .meta-item strong { display: block; color: var(--accent); font-size: 11px; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 2px; }
+
+/* Pill tags */
+.pill {
+  display: inline-block; padding: 3px 10px; border-radius: 999px;
+  font-size: 11px; font-weight: 600; margin: 2px;
+}
+.pill-green { background: rgba(29,185,84,.2); color: var(--accent2); }
+.pill-blue { background: rgba(59,130,246,.2); color: #60a5fa; }
+.pill-orange { background: rgba(245,158,11,.2); color: var(--orange); }
+.pill-red { background: rgba(239,68,68,.2); color: #f87171; }
+.pill-purple { background: rgba(167,139,250,.2); color: var(--purple); }
+
+/* Two-col layout inside slide */
+.two-col { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 24px; }
+@media (max-width: 1100px) { .two-col { grid-template-columns: 1fr; } }
+
+/* Q&A */
+.qa-item {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 12px; padding: 16px 18px; margin-bottom: 12px;
+}
+.qa-item .q { font-weight: 700; color: var(--cyan); margin-bottom: 6px; font-size: 14px; }
+.qa-item .a { font-size: 13.5px; color: var(--text); }
+
+/* Timeline cleaning */
+.timeline { position: relative; padding-left: 28px; }
+.timeline::before {
+  content: ''; position: absolute; left: 8px; top: 4px; bottom: 4px;
+  width: 2px; background: var(--border);
+}
+.tl-item { position: relative; margin-bottom: 18px; }
+.tl-item::before {
+  content: ''; position: absolute; left: -24px; top: 6px;
+  width: 12px; height: 12px; border-radius: 50%;
+  background: var(--accent); border: 2px solid var(--bg);
+}
+.tl-item .tl-title { font-weight: 700; font-size: 14px; }
+.tl-item .tl-desc { font-size: 13px; color: var(--muted); }
+
+/* Progress bar top */
+.progress-bar {
+  position: fixed; top: 0; left: 260px; right: 0; height: 3px;
+  background: var(--bg3); z-index: 150;
+}
+.progress-fill {
+  height: 100%; background: linear-gradient(90deg, var(--accent), var(--cyan));
+  width: 0%; transition: width .3s;
+}
+
+/* Mobile menu */
+.menu-btn {
+  display: none; position: fixed; top: 16px; left: 16px; z-index: 300;
+  background: var(--card); border: 1px solid var(--border);
+  color: var(--text); width: 40px; height: 40px; border-radius: 10px;
+  font-size: 18px; cursor: pointer;
+}
+@media (max-width: 1100px) {
+  .menu-btn { display: flex; align-items: center; justify-content: center; }
+  .sidebar.open { transform: translateX(0); }
+  .progress-bar { left: 0; }
+}
+</style>
+</head>
+<body>
+
+<button class="menu-btn" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+<div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+
+<!-- SIDEBAR -->
+<nav class="sidebar" id="sidebar">
+  <div class="logo">
+    <h1>🎵 Spotify Hit Analysis</h1>
+    <p>Nhóm 4 · TOKT1138 · NEU</p>
+  </div>
+  <a class="nav-item active" href="#" data-slide="0"><span class="num">0</span>Mở đầu</a>
+  <a class="nav-item" href="#" data-slide="1"><span class="num">1</span>Mô tả dữ liệu</a>
+  <a class="nav-item" href="#" data-slide="2"><span class="num">2</span>Làm sạch dữ liệu</a>
+  <a class="nav-item" href="#" data-slide="3"><span class="num">3</span>Tạo biến Hit</a>
+  <a class="nav-item" href="#" data-slide="4"><span class="num">4</span>Phân tích mô tả</a>
+  <a class="nav-item" href="#" data-slide="5"><span class="num">5</span>Phân tích chẩn đoán</a>
+  <a class="nav-item" href="#" data-slide="6"><span class="num">6</span>Mô hình dự báo</a>
+  <a class="nav-item" href="#" data-slide="7"><span class="num">7</span>Kết luận & Đề xuất</a>
+  <a class="nav-item" href="#" data-slide="8"><span class="num">8</span>Hạn chế</a>
+  <a class="nav-item" href="#" data-slide="9"><span class="num">9</span>Q&A phản biện</a>
+</nav>
+
+<div class="main">
+
+<!-- ========== SLIDE 0: COVER ========== -->
+<section class="slide active cover" id="slide-0">
+  <div class="slide-badge">THUYẾT TRÌNH · 15–20 PHÚT</div>
+  <h1 style="margin-top:16px">Spotify Hit Analysis<br><span>Điều gì làm bài hát nổi tiếng?</span></h1>
+  <p class="subtitle">
+    Khoa học dữ liệu trong Kinh tế và Kinh doanh · Lớp TOKT1138(126)CLC_41 · Nhóm 4
+  </p>
+  <div class="grid grid-4" style="max-width:720px">
+    <div class="card">
+      <div class="stat-value" style="font-size:24px">114K</div>
+      <div class="stat-label">Dòng dữ liệu gốc</div>
+    </div>
+    <div class="card">
+      <div class="stat-value" style="font-size:24px">85.3K</div>
+      <div class="stat-label">Sau làm sạch</div>
+    </div>
+    <div class="card">
+      <div class="stat-value" style="font-size:24px">2</div>
+      <div class="stat-label">Bài toán ML</div>
+    </div>
+    <div class="card">
+      <div class="stat-value" style="font-size:24px">R² 0.19</div>
+      <div class="stat-label">Hồi quy tốt nhất</div>
+    </div>
+  </div>
+  <div class="meta">
+    <div class="meta-item"><strong>Thành viên</strong>Lê Trường Giang · Đinh Thị Anh Thư · Trần Trung Hiếu · Phan Việt Hà (Lead)</div>
+    <div class="meta-item"><strong>Dữ liệu</strong>Spotify Tracks Dataset (Kaggle)</div>
+    <div class="meta-item"><strong>Ngày</strong>12/11/2026</div>
+  </div>
+
+  <div class="script-box" style="margin-top:32px; max-width:700px">
+    <div class="label">Script mở đầu (~30 giây)</div>
+    "Kính chào thầy cô và các bạn. Nhóm 4 chúng em thực hiện đề tài <strong>Spotify Hit Analysis</strong> – tìm hiểu điều gì làm một bài hát trên Spotify nổi tiếng, và máy có thể dự đoán được bài nào sẽ 'hit' hay không.<br><br>
+    Chúng em dùng bộ dữ liệu 114.000 dòng từ Kaggle. Câu hỏi lớn của nhóm là: <em>Đặc tính âm thanh, thời lượng, nội dung explicit hay thể loại – yếu tố nào quyết định độ hot?</em>"
+  </div>
+</section>
+
+<!-- ========== SLIDE 1: MÔ TẢ DỮ LIỆU ========== -->
+<section class="slide" id="slide-1">
+  <div class="slide-header">
+    <span class="slide-badge">PHẦN 1 · ~1 PHÚT</span>
+    <h2>Mô tả dữ liệu</h2>
+  </div>
+
+  <div class="script-box">
+    <div class="label">Script nói</div>
+    "Trước khi phân tích, chúng em cần hiểu dữ liệu có gì. Bộ dữ liệu Spotify Tracks Dataset gồm <strong>114.000 dòng × 21 cột</strong>. Mỗi dòng là một bài hát gắn với một thể loại – vì vậy 114.000 dòng không đồng nghĩa 114.000 bài hát khác nhau."
+  </div>
+
+  <div class="grid grid-4">
+    <div class="card highlight">
+      <div class="stat-value">114.000</div>
+      <div class="stat-label">Số dòng ban đầu</div>
+    </div>
+    <div class="card">
+      <div class="stat-value">21</div>
+      <div class="stat-label">Số cột (có 1 cột thừa)</div>
+    </div>
+    <div class="card">
+      <div class="stat-value">114</div>
+      <div class="stat-label">Thể loại nhạc</div>
+    </div>
+    <div class="card">
+      <div class="stat-value">33,2</div>
+      <div class="stat-label">Popularity trung bình (0–100)</div>
+    </div>
+  </div>
+
+  <h3>Code đọc & khảo sát dữ liệu</h3>
+  <div class="code-block">
+    <span class="lang">Python</span>
+<span class="cmt"># Đọc dữ liệu gốc</span>
+<span class="fn">df_raw</span> = pd.<span class="fn">read_csv</span>(RAW)
+<span class="fn">print</span>(df_raw.shape)   <span class="cmt"># → (114000, 21)</span>
+df_raw.<span class="fn">info</span>()         <span class="cmt"># Kiểu dữ liệu, số ô trống từng cột</span>
+df_raw.<span class="fn">describe</span>().T  <span class="cmt"># mean, std, min, max, Q1–Q3</span>
+  </div>
+
+  <div class="two-col">
+    <div>
+      <h4>Các biến quan trọng cần nhớ</h4>
+      <table>
+        <tr><th>Biến</th><th>Ý nghĩa</th><th>Vai trò</th></tr>
+        <tr><td><code>popularity</code></td><td>Độ phổ biến 0–100</td><td><span class="pill pill-green">Đích hồi quy</span></td></tr>
+        <tr><td><code>is_hit</code></td><td>0 = không hit · 1 = hit</td><td><span class="pill pill-green">Đích phân loại</span></td></tr>
+        <tr><td><code>danceability</code></td><td>Khả năng dễ nhảy (0–1)</td><td>Đầu vào</td></tr>
+        <tr><td><code>energy</code></td><td>Mức năng lượng (0–1)</td><td>Đầu vào</td></tr>
+        <tr><td><code>acousticness</code></td><td>Mức độ acoustic (0–1)</td><td>Đầu vào</td></tr>
+        <tr><td><code>instrumentalness</code></td><td>Khả năng không lời (0–1)</td><td>Đầu vào</td></tr>
+        <tr><td><code>valence</code></td><td>Sắc thái tích cực (0–1)</td><td>Đầu vào</td></tr>
+        <tr><td><code>tempo</code></td><td>Nhịp độ (BPM)</td><td>Đầu vào</td></tr>
+        <tr><td><code>loudness</code></td><td>Âm lượng trung bình (dB)</td><td>Đầu vào</td></tr>
+        <tr><td><code>duration_min</code></td><td>Thời lượng (phút)</td><td>Biến tạo mới</td></tr>
+        <tr><td><code>explicit</code></td><td>Lời nhạy cảm True/False</td><td>Đầu vào</td></tr>
+        <tr><td><code>track_genre</code></td><td>Thể loại nhạc</td><td>So sánh / thử nghiệm</td></tr>
+      </table>
+    </div>
+    <div>
+      <h4>Phát hiện kiểm tra ban đầu</h4>
+      <div class="card" style="margin-bottom:12px">
+        <strong>Ô trống:</strong> chỉ 1 dòng thiếu artists, album_name, track_name
+      </div>
+      <div class="card" style="margin-bottom:12px">
+        <strong>Trùng track_id:</strong> <span class="warn">24.259 dòng</span> (~21%) – một bài thuộc nhiều thể loại
+      </div>
+      <div class="card" style="margin-bottom:12px">
+        <strong>Popularity = 0:</strong> 14,05% – bài mới hoặc rất ít nghe
+      </div>
+      <div class="card">
+        <strong>Giá trị vô lý:</strong> 157 bài tempo = 0 · 1 bài duration ≤ 0
+      </div>
+      <div class="tip" style="margin-top:16px">
+        <strong>Cách nói:</strong> "Dữ liệu có 114.000 dòng nhưng không phải 114.000 bài hát khác nhau, vì một bài có thể thuộc nhiều thể loại và bị lặp lại."
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== SLIDE 2: LÀM SẠCH ========== -->
+<section class="slide" id="slide-2">
+  <div class="slide-header">
+    <span class="slide-badge">PHẦN 2 · ~2 PHÚT</span>
+    <h2>Làm sạch dữ liệu</h2>
+  </div>
+
+  <div class="script-box">
+    <div class="label">Script nói</div>
+    "Bước quan trọng nhất là loại trùng <code>track_id</code> – mất 24.259 dòng, chiếm phần lớn số dòng bị loại. Cuối cùng còn <strong>85.361 bài sạch</strong> (74,9%) để phân tích. Nhóm quyết định <strong>giữ bài popularity = 0</strong> vì đây là nhóm 'không nổi' quan trọng để so sánh."
+  </div>
+
+  <h3>Quy trình làm sạch (Cleaning Log)</h3>
+  <div class="chart-wrap">
+    <div class="chart-title">Số dòng còn lại sau mỗi bước</div>
+    <canvas id="chartCleaning" height="90"></canvas>
+  </div>
+
+  <table>
+    <tr>
+      <th>Bước xử lý</th><th>Trước</th><th>Sau</th><th>Loại bỏ</th><th>Ghi chú</th>
+    </tr>
+    <tr>
+      <td>Bỏ dòng thiếu</td>
+      <td class="num-cell">114.000</td>
+      <td class="num-cell">113.999</td>
+      <td class="num-cell">1</td>
+      <td>1 dòng thiếu artists/album/track_name</td>
+    </tr>
+    <tr>
+      <td><strong>Bỏ trùng track_id</strong></td>
+      <td class="num-cell">113.999</td>
+      <td class="num-cell">89.740</td>
+      <td class="num-cell warn">24.259</td>
+      <td>⭐ Bước quan trọng nhất (~85% số bị loại)</td>
+    </tr>
+    <tr>
+      <td>Bỏ duration ≤ 0 hoặc tempo = 0</td>
+      <td class="num-cell">89.740</td>
+      <td class="num-cell">89.583</td>
+      <td class="num-cell">157</td>
+      <td>Giá trị không hợp lệ</td>
+    </tr>
+    <tr>
+      <td>Bỏ ngoại lệ thời lượng (IQR)</td>
+      <td class="num-cell">89.583</td>
+      <td class="num-cell">85.361</td>
+      <td class="num-cell">4.222</td>
+      <td>Giữ khoảng ~0,61–6,69 phút</td>
+    </tr>
+    <tr style="background:rgba(29,185,84,.08)">
+      <td><strong>Tổng cộng</strong></td>
+      <td class="num-cell"><strong>114.000</strong></td>
+      <td class="num-cell good"><strong>85.361</strong></td>
+      <td class="num-cell"><strong>28.639 (25,1%)</strong></td>
+      <td>Giữ 74,9% dữ liệu</td>
+    </tr>
+  </table>
+
+  <h3>Code làm sạch</h3>
+  <div class="code-block">
+    <span class="lang">Python</span>
+<span class="kw">DROP_POP0</span> = <span class="kw">False</span>   <span class="cmt"># Giữ popularity = 0</span>
+df = df_raw.<span class="fn">copy</span>()
+df = df.<span class="fn">drop</span>(columns=[<span class="str">'Unnamed: 0'</span>])
+df = df.<span class="fn">dropna</span>()
+df = df.<span class="fn">drop_duplicates</span>(subset=<span class="str">'track_id'</span>)   <span class="cmt"># Mỗi bài 1 dòng</span>
+df = df[(df[<span class="str">'duration_ms'</span>] &gt; <span class="num">0</span>) &amp; (df[<span class="str">'tempo'</span>] &gt; <span class="num">0</span>)]
+<span class="cmt"># Bỏ ngoại lệ IQR trên thời lượng</span>
+minutes = df[<span class="str">'duration_ms'</span>] / <span class="num">60000</span>
+q1, q3 = minutes.<span class="fn">quantile</span>([<span class="num">0.25</span>, <span class="num">0.75</span>])
+iqr = q3 - q1
+df = df[(minutes &gt;= q1 - <span class="num">1.5</span>*iqr) &amp; (minutes &lt;= q3 + <span class="num">1.5</span>*iqr)]
+  </div>
+
+  <div class="grid grid-2">
+    <div class="tip">
+      <strong>Vì sao giữ popularity = 0?</strong><br>
+      Đây là giá trị hợp lệ (bài chưa/ít được nghe gần đây). Bỏ đi sẽ mất ~14% dữ liệu và làm phân bố thiên về bài có điểm cao hơn. Đây là nhóm "không nổi" cần so sánh.
+    </div>
+    <div class="warn-box">
+      <strong>Lưu ý khi bỏ trùng:</strong> Giữ dòng đầu tiên → mỗi bài chỉ còn 1 nhãn thể loại. Kết quả theo genre chịu ảnh hưởng của cách gán này.
+    </div>
+  </div>
+</section>
+
+<!-- ========== SLIDE 3: TẠO BIẾN HIT ========== -->
+<section class="slide" id="slide-3">
+  <div class="slide-header">
+    <span class="slide-badge">PHẦN 3 · ~30 GIÂY</span>
+    <h2>Tạo biến "Hit"</h2>
+  </div>
+
+  <div class="script-box">
+    <div class="label">Script nói</div>
+    "Định nghĩa 'hit' = top 10% popularity, tức là <strong>popularity ≥ 61</strong>. Dữ liệu mất cân bằng – chỉ 10,2% là hit, nên khi đánh giá mô hình phân loại <strong>không thể chỉ nhìn Accuracy</strong>."
+  </div>
+
+  <div class="two-col">
+    <div>
+      <h3>Code tạo biến</h3>
+      <div class="code-block">
+        <span class="lang">Python</span>
+df[<span class="str">'duration_min'</span>] = df[<span class="str">'duration_ms'</span>] / <span class="num">60000</span>
+threshold = df[<span class="str">'popularity'</span>].<span class="fn">quantile</span>(<span class="num">0.9</span>)  <span class="cmt"># = 61</span>
+df[<span class="str">'is_hit'</span>] = np.<span class="fn">where</span>(
+    df[<span class="str">'popularity'</span>] &gt;= threshold, <span class="num">1</span>, <span class="num">0</span>
+)
+      </div>
+      <div class="tip">
+        <strong>quantile(0.9)</strong> lấy điểm mà 90% bài thấp hơn. Bài ≥ ngưỡng → hit = 1.
+      </div>
+    </div>
+    <div>
+      <h3>Phân bố lớp</h3>
+      <div class="chart-wrap">
+        <canvas id="chartHitPie" height="200"></canvas>
+      </div>
+      <table>
+        <tr><th>Nhóm</th><th>Số bài</th><th>Tỷ lệ</th></tr>
+        <tr><td>Không hit (0)</td><td class="num-cell">76.658</td><td class="num-cell">89,8%</td></tr>
+        <tr><td class="good">Hit (1)</td><td class="num-cell good">8.703</td><td class="num-cell good">10,2%</td></tr>
+        <tr><td>Ngưỡng</td><td colspan="2" class="num-cell">popularity ≥ <strong>61</strong></td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="warn-box">
+    <strong>Bẫy Accuracy:</strong> Một mô hình luôn đoán "không hit" đạt ~89,8% Accuracy nhưng Recall = 0 (không bắt được hit nào). Vì vậy phải xem Precision, Recall, AUC.
+  </div>
+</section>
+
+<!-- ========== SLIDE 4: PHÂN TÍCH MÔ TẢ ========== -->
+<section class="slide" id="slide-4">
+  <div class="slide-header">
+    <span class="slide-badge">PHẦN 4 · ~3 PHÚT</span>
+    <h2>Phân tích mô tả & Trực quan hóa</h2>
+  </div>
+
+  <div class="script-box">
+    <div class="label">Script nói</div>
+    "Popularity không phân bố đều – đa số bài ở mức thấp, chỉ một số ít thật sự hot. Trung bình 33,5 – trung vị 34. Ba thể loại dẫn đầu là k-pop, pop-film, metal với điểm trung bình 56–60."
+  </div>
+
+  <h3>4.1. Phân bố Popularity</h3>
+  <div class="two-col">
+    <div class="chart-wrap">
+      <div class="chart-title">Histogram popularity (bins=30) · ~11.000 bài ở vùng 0–3</div>
+      <canvas id="chartPopHist" height="220"></canvas>
+    </div>
+    <div>
+      <table>
+        <tr><th>Chỉ số</th><th>Giá trị</th><th>Diễn giải</th></tr>
+        <tr><td>Mean</td><td class="num-cell">33,5</td><td>Thấp hơn ngưỡng hit 61</td></tr>
+        <tr><td>Median</td><td class="num-cell">34</td><td>Gần mean, nhưng không chuẩn</td></tr>
+        <tr><td>Std</td><td class="num-cell">20,67</td><td>Phân tán rộng</td></tr>
+        <tr><td>Hit threshold</td><td class="num-cell good">≥ 61</td><td>Top 10%</td></tr>
+      </table>
+      <div class="tip">
+        <strong>Hàm ý:</strong> Bài thật sự nổi tiếng là thiểu số. Cột rất cao ở 0–3 → nhóm lớn gần như không được nghe. Rất ít bài vượt 80.
+      </div>
+    </div>
+  </div>
+
+  <h3>4.2. Top 10 thể loại theo Popularity trung bình</h3>
+  <div class="chart-wrap">
+    <div class="chart-title">Bar chart · popularity trung bình theo track_genre</div>
+    <canvas id="chartGenre" height="160"></canvas>
+  </div>
+  <div class="grid grid-3">
+    <div class="card highlight">
+      <div class="stat-value" style="font-size:28px">59,9</div>
+      <div class="stat-label">🥇 k-pop</div>
+    </div>
+    <div class="card">
+      <div class="stat-value" style="font-size:28px">59,3</div>
+      <div class="stat-label">🥈 pop-film</div>
+    </div>
+    <div class="card">
+      <div class="stat-value" style="font-size:28px">56,5</div>
+      <div class="stat-label">🥉 metal</div>
+    </div>
+  </div>
+  <div class="warn-box">
+    <strong>Không nhầm trung bình với số hit tuyệt đối.</strong> Thể loại ít bài nhưng trung bình cao chưa chắc có nhiều hit hơn thể loại lớn. Mục 5 sẽ kiểm bằng tỷ lệ hit.
+  </div>
+
+  <h3>4.3. Explicit vs Popularity (Boxplot)</h3>
+  <div class="two-col">
+    <div>
+      <table>
+        <tr><th>Nhóm</th><th>Số bài</th><th>Mean</th><th>Median</th></tr>
+        <tr><td>Không explicit</td><td class="num-cell">77.819</td><td class="num-cell">33,16</td><td class="num-cell">33</td></tr>
+        <tr><td>Explicit</td><td class="num-cell">7.542</td><td class="num-cell good">37,01</td><td class="num-cell good">37</td></tr>
+      </table>
+      <div class="tip">
+        Explicit cao hơn ~3,85 điểm (mean) và 4 điểm (median), nhưng hộp chồng lấn nhiều → chỉ liên quan nhẹ, không phải yếu tố quyết định.
+      </div>
+    </div>
+    <div class="chart-wrap">
+      <div class="chart-title">So sánh mean popularity theo explicit</div>
+      <canvas id="chartExplicit" height="180"></canvas>
+    </div>
+  </div>
+
+  <h3>4.4. Đặc điểm âm thanh (tóm tắt)</h3>
+  <table>
+    <tr><th>Biến</th><th>Mean</th><th>Median</th><th>Hình dạng nổi bật</th></tr>
+    <tr><td>Danceability</td><td class="num-cell">0,565</td><td class="num-cell">0,577</td><td>Tập trung 0,4–0,8</td></tr>
+    <tr><td>Energy</td><td class="num-cell">0,636</td><td class="num-cell">0,677</td><td>Nhiều bài 0,6–1,0</td></tr>
+    <tr><td>Valence</td><td class="num-cell">0,477</td><td class="num-cell">0,467</td><td>Phân bố rộng</td></tr>
+    <tr><td>Acousticness</td><td class="num-cell">—</td><td class="num-cell">—</td><td>Cột cao sát 0 (lệch phải)</td></tr>
+    <tr><td>Tempo</td><td class="num-cell">122,3</td><td class="num-cell">122,0</td><td>Tập trung 100–140 BPM</td></tr>
+    <tr><td>Duration_min</td><td class="num-cell">3,59</td><td class="num-cell">3,50</td><td>Đỉnh gần 3–4 phút</td></tr>
+  </table>
+</section>
+
+<!-- ========== SLIDE 5: CHẨN ĐOÁN ========== -->
+<section class="slide" id="slide-5">
+  <div class="slide-header">
+    <span class="slide-badge">PHẦN 5 · ~2–3 PHÚT</span>
+    <h2>Phân tích chẩn đoán</h2>
+  </div>
+
+  <div class="script-box">
+    <div class="label">Script nói</div>
+    "Tất cả hệ số tương quan r với popularity đều nằm trong khoảng <strong>−0,11 đến +0,07</strong> → không có đặc điểm âm thanh nào liên quan mạnh. Nhưng khi nhìn tỷ lệ hit theo thể loại: metal lên tới 59,7% so với 10,2% chung – đây là con số ấn tượng nhất."
+  </div>
+
+  <h3>5.1. Tương quan Pearson với Popularity</h3>
+  <div class="two-col">
+    <div class="chart-wrap">
+      <div class="chart-title">Hệ số r với popularity (sắp xếp)</div>
+      <canvas id="chartCorr" height="240"></canvas>
+    </div>
+    <div>
+      <table>
+        <tr><th>Biến</th><th>r</th><th>Diễn giải</th></tr>
+        <tr><td>instrumentalness</td><td class="num-cell bad">−0,110</td><td>Âm rất yếu (lớn nhất |r|)</td></tr>
+        <tr><td>speechiness</td><td class="num-cell">−0,047</td><td>Âm rất yếu</td></tr>
+        <tr><td>acousticness</td><td class="num-cell">−0,042</td><td>Âm rất yếu</td></tr>
+        <tr><td>valence</td><td class="num-cell">−0,018</td><td>Gần 0</td></tr>
+        <tr><td>tempo</td><td class="num-cell">+0,007</td><td>Gần 0</td></tr>
+        <tr><td>energy</td><td class="num-cell">+0,013</td><td>Gần 0</td></tr>
+        <tr><td>duration_min</td><td class="num-cell">+0,031</td><td>Dương rất yếu</td></tr>
+        <tr><td>loudness</td><td class="num-cell">+0,061</td><td>Dương rất yếu</td></tr>
+        <tr><td>danceability</td><td class="num-cell good">+0,069</td><td>Dương rất yếu (cao nhất)</td></tr>
+      </table>
+      <div class="warn-box">
+        <strong>Chống hiểu nhầm:</strong> r = 0,069 <em>không</em> có nghĩa tăng danceability 1% thì popularity tăng 6,9%. Chỉ nói hai biến gần như không có quan hệ tuyến tính.
+      </div>
+    </div>
+  </div>
+
+  <h3>5.2. Heatmap – Tương quan giữa các biến</h3>
+  <div class="grid grid-2">
+    <div>
+      <table>
+        <tr><th>Cặp biến</th><th>r</th><th>Ý nghĩa</th></tr>
+        <tr><td>Energy – Loudness</td><td class="num-cell good">+0,76</td><td>Năng lượng cao → âm lượng lớn</td></tr>
+        <tr><td>Energy – Acousticness</td><td class="num-cell bad">−0,74</td><td>Nhiều acoustic → energy thấp</td></tr>
+        <tr><td>Loudness – Acousticness</td><td class="num-cell">−0,59</td><td>Ngược chiều</td></tr>
+        <tr><td>Danceability – Valence</td><td class="num-cell">+0,49</td><td>Dễ nhảy → cảm xúc tích cực</td></tr>
+      </table>
+    </div>
+    <div class="tip">
+      <strong>Đọc 2 lớp thông tin:</strong><br>
+      (1) Các ô liên quan popularity đa số gần 0.<br>
+      (2) Một số cặp đặc điểm âm thanh liên quan khá mạnh với nhau – nhưng điều này <em>không</em> suy ra chúng dự đoán popularity tốt.
+    </div>
+  </div>
+
+  <h3>5.3. Tỷ lệ hit theo Explicit & Thể loại</h3>
+  <div class="grid grid-2">
+    <div>
+      <h4>Theo Explicit</h4>
+      <div class="chart-wrap">
+        <canvas id="chartHitExplicit" height="160"></canvas>
+      </div>
+      <table>
+        <tr><th>Nhóm</th><th>Tỷ lệ hit</th></tr>
+        <tr><td>Không explicit</td><td class="num-cell">9,6%</td></tr>
+        <tr><td>Explicit</td><td class="num-cell good">16,7% (×1,74)</td></tr>
+      </table>
+    </div>
+    <div>
+      <h4>Theo Thể loại (Top 5)</h4>
+      <div class="chart-wrap">
+        <canvas id="chartHitGenre" height="160"></canvas>
+      </div>
+      <table>
+        <tr><th>Thể loại</th><th>Tỷ lệ hit</th></tr>
+        <tr><td>metal</td><td class="num-cell good">59,7%</td></tr>
+        <tr><td>pop</td><td class="num-cell good">57,1%</td></tr>
+        <tr><td>k-pop</td><td class="num-cell">52,9%</td></tr>
+        <tr><td>pop-film</td><td class="num-cell">46,1%</td></tr>
+        <tr><td>latino</td><td class="num-cell">43,3%</td></tr>
+        <tr><td><em>Tỷ lệ chung</em></td><td class="num-cell">10,2%</td></tr>
+      </table>
+    </div>
+  </div>
+  <div class="tip">
+    <strong>Cách nói:</strong> "Trong toàn dữ liệu chỉ 10,2% là hit, nhưng nếu là metal thì tỷ lệ hit lên tới 59,7%. Lưu ý: metal top về tỷ lệ hit, còn k-pop top về popularity trung bình – hai cách đánh giá khác nhau. Đây là mối liên quan, không phải nhân quả."
+  </div>
+</section>
+
+<!-- ========== SLIDE 6: MÔ HÌNH ========== -->
+<section class="slide" id="slide-6">
+  <div class="slide-header">
+    <span class="slide-badge">PHẦN 6 · ~3 PHÚT</span>
+    <h2>Mô hình dự báo</h2>
+  </div>
+
+  <div class="script-box">
+    <div class="label">Script nói</div>
+    "Chỉ dùng đặc điểm âm thanh: Random Forest chỉ giải thích 15,4% biến thiên (R² = 0,154). Thêm thể loại → R² tăng lên 19%. Với phân loại, AUC từ 0,709 lên 0,804. Cải thiện có thật nhưng vẫn còn thấp – mô hình chỉ nên dùng để sàng lọc."
+  </div>
+
+  <h3>6.1. Hồi quy – Dự đoán điểm Popularity</h3>
+  <div class="code-block">
+    <span class="lang">Python</span>
+X_train, X_test, y_train, y_test = <span class="fn">train_test_split</span>(X, y, test_size=<span class="num">0.2</span>, random_state=<span class="num">42</span>)
+models = {
+    <span class="str">'Linear Regression'</span>: <span class="fn">LinearRegression</span>(),
+    <span class="str">'Decision Tree'</span>: <span class="fn">DecisionTreeRegressor</span>(max_depth=<span class="num">8</span>),
+    <span class="str">'Random Forest'</span>: <span class="fn">RandomForestRegressor</span>(n_estimators=<span class="num">100</span>, max_depth=<span class="num">12</span>),
+}
+<span class="cmt"># Fit → predict → tính MAE, RMSE, R²</span>
+  </div>
+
+  <div class="chart-wrap">
+    <div class="chart-title">So sánh R² các mô hình hồi quy</div>
+    <canvas id="chartR2" height="120"></canvas>
+  </div>
+
+  <table>
+    <tr><th>Mô hình</th><th>MAE</th><th>RMSE</th><th>R²</th></tr>
+    <tr><td>Linear Regression</td><td class="num-cell">16,750</td><td class="num-cell">20,344</td><td class="num-cell">0,030</td></tr>
+    <tr><td>Decision Tree</td><td class="num-cell">16,041</td><td class="num-cell">19,867</td><td class="num-cell">0,075</td></tr>
+    <tr><td>Random Forest</td><td class="num-cell">15,234</td><td class="num-cell">18,992</td><td class="num-cell">0,154</td></tr>
+    <tr style="background:rgba(29,185,84,.1)">
+      <td><strong>Random Forest + thể loại</strong></td>
+      <td class="num-cell good">14,938</td>
+      <td class="num-cell good">18,591</td>
+      <td class="num-cell good"><strong>0,190</strong> ⭐</td>
+    </tr>
+  </table>
+  <div class="tip">
+    <strong>R² = 0,190</strong> nghĩa là giải thích được 19% biến thiên popularity – <em>không phải</em> đoán đúng 19% số bài. RMSE ~18,6 gần bằng std popularity (~20,7) → chưa hơn đoán đại nhiều.
+  </div>
+
+  <h3>6.2. Feature Importance (Random Forest)</h3>
+  <div class="chart-wrap">
+    <div class="chart-title">Mức độ quan trọng biến (chỉ đặc điểm âm thanh)</div>
+    <canvas id="chartImportance" height="140"></canvas>
+  </div>
+  <div class="warn-box">
+    acousticness đứng đầu (0,151) nhưng các mức khá gần nhau → không có biến nào vượt trội. Importance không cho biết chiều tác động và không phải nhân quả.
+  </div>
+
+  <h3>6.3. Phân loại – Dự đoán bài Hit</h3>
+  <div class="code-block">
+    <span class="lang">Python</span>
+logit = <span class="fn">LogisticRegression</span>(class_weight=<span class="str">'balanced'</span>).<span class="fn">fit</span>(...)
+rf_clf = <span class="fn">RandomForestClassifier</span>(class_weight=<span class="str">'balanced'</span>).<span class="fn">fit</span>(...)
+<span class="cmt"># class_weight='balanced' vì dữ liệu mất cân bằng 90/10</span>
+  </div>
+
+  <div class="chart-wrap">
+    <div class="chart-title">So sánh AUC các mô hình phân loại</div>
+    <canvas id="chartAUC" height="120"></canvas>
+  </div>
+
+  <table>
+    <tr><th>Mô hình</th><th>Accuracy</th><th>Precision</th><th>Recall</th><th>AUC</th></tr>
+    <tr>
+      <td>Logistic Regression</td>
+      <td class="num-cell">0,557</td><td class="num-cell">0,147</td>
+      <td class="num-cell">0,694</td><td class="num-cell">0,662</td>
+    </tr>
+    <tr>
+      <td>Random Forest</td>
+      <td class="num-cell">0,651</td><td class="num-cell">0,172</td>
+      <td class="num-cell">0,633</td><td class="num-cell">0,709</td>
+    </tr>
+    <tr style="background:rgba(29,185,84,.1)">
+      <td><strong>Random Forest + thể loại</strong></td>
+      <td class="num-cell good">0,729</td><td class="num-cell good">0,234</td>
+      <td class="num-cell good">0,728</td><td class="num-cell good"><strong>0,804</strong> ⭐</td>
+    </tr>
+  </table>
+
+  <h3>6.4. Confusion Matrix (RF + Genre)</h3>
+  <div class="grid grid-2">
+    <div>
+      <table>
+        <tr><th>Ô</th><th>RF ban đầu</th><th>RF + Genre</th><th>Thay đổi</th></tr>
+        <tr><td>TN (không hit đúng)</td><td class="num-cell">10.015</td><td class="num-cell">11.183</td><td class="good">+1.168</td></tr>
+        <tr><td>FP (báo nhầm hit)</td><td class="num-cell">5.317</td><td class="num-cell">4.149</td><td class="good">−1.168</td></tr>
+        <tr><td>FN (bỏ sót hit)</td><td class="num-cell">639</td><td class="num-cell">474</td><td class="good">−165</td></tr>
+        <tr><td>TP (hit đúng)</td><td class="num-cell">1.102</td><td class="num-cell">1.267</td><td class="good">+165</td></tr>
+      </table>
+    </div>
+    <div class="tip">
+      Tập test 17.073 bài, gồm 1.741 hit thật.<br><br>
+      Precision = 1.267 / (1.267+4.149) = <strong>23,4%</strong><br>
+      Recall = 1.267 / (1.267+474) = <strong>72,8%</strong><br><br>
+      Thêm thể loại giảm 1.168 báo nhầm và tăng 165 hit phát hiện đúng. Vẫn còn 4.149 FP → chỉ dùng để sàng lọc.
+    </div>
+  </div>
+</section>
+
+<!-- ========== SLIDE 7: KẾT LUẬN ========== -->
+<section class="slide" id="slide-7">
+  <div class="slide-header">
+    <span class="slide-badge">PHẦN 7 · ~1–2 PHÚT</span>
+    <h2>Kết luận & Đề xuất</h2>
+  </div>
+
+  <div class="script-box">
+    <div class="label">Script nói – Câu chốt</div>
+    "<strong>Độ phổ biến liên quan tới thể loại nhiều hơn nhiều so với từng đặc điểm âm thanh riêng lẻ.</strong> Chỉ dựa vào đặc điểm âm thanh thì chưa đủ để dự đoán độ hot của bài hát."
+  </div>
+
+  <h3>8 phát hiện chính</h3>
+  <table>
+    <tr><th>#</th><th>Phát hiện</th><th>Con số minh chứng</th></tr>
+    <tr><td>1</td><td>Hit là thiểu số</td><td class="num-cell">Ngưỡng 61 · tỷ lệ hit 10,2%</td></tr>
+    <tr><td>2</td><td>Popularity trung bình thấp</td><td class="num-cell">Mean 33,5 · Median 34</td></tr>
+    <tr><td>3</td><td>Thể loại top về popularity TB</td><td class="num-cell">k-pop 59,9 · pop-film 59,3 · metal 56,5</td></tr>
+    <tr><td>4</td><td>Thể loại top về tỷ lệ hit</td><td class="num-cell">metal 59,7% · pop 57,1% · k-pop 52,9%</td></tr>
+    <tr><td>5</td><td>Đặc điểm âm thanh tương quan yếu</td><td class="num-cell">Mọi |r| ≤ 0,11</td></tr>
+    <tr><td>6</td><td>Explicit liên quan nhẹ</td><td class="num-cell">16,7% vs 9,6%</td></tr>
+    <tr><td>7</td><td>Hồi quy tốt nhất</td><td class="num-cell">RF + Genre: R² = 0,190 · RMSE 18,591</td></tr>
+    <tr><td>8</td><td>Phân loại tốt nhất</td><td class="num-cell">RF + Genre: AUC 0,804 · Recall 0,728 · Precision 0,234</td></tr>
+  </table>
+
+  <h3>3 đề xuất bám số liệu</h3>
+  <div class="grid grid-3">
+    <div class="card highlight">
+      <h4 style="color:var(--accent2);margin-top:0">🎤 Nghệ sĩ / Nhà sản xuất</h4>
+      <p style="font-size:13.5px">Không có "công thức âm thanh" tạo hit vì đặc điểm âm thanh liên quan rất yếu. Nên xác định <strong>thể loại và khán giả mục tiêu trước</strong> – vì thể loại phân hóa mạnh hơn nhiều.</p>
+    </div>
+    <div class="card">
+      <h4 style="color:var(--blue);margin-top:0">🏢 Hãng đĩa / Nền tảng</h4>
+      <p style="font-size:13.5px">Chỉ dùng mô hình như <strong>công cụ sàng lọc ban đầu</strong>, không quyết định cuối cùng. Cần bổ sung thông tin ngoài âm thanh (nghệ sĩ, quảng bá, playlist, ngày phát hành).</p>
+    </div>
+    <div class="card">
+      <h4 style="color:var(--orange);margin-top:0">⚠️ Về Explicit</h4>
+      <p style="font-size:13.5px">Bài explicit có tỷ lệ hit cao hơn trong dữ liệu này, nhưng đây chỉ là <strong>mối liên quan</strong> – không nên thêm lời nhạy cảm để làm bài hot.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ========== SLIDE 8: HẠN CHẾ ========== -->
+<section class="slide" id="slide-8">
+  <div class="slide-header">
+    <span class="slide-badge">PHẦN 8 · ~30 GIÂY</span>
+    <h2>Hạn chế & Hướng phát triển</h2>
+  </div>
+
+  <div class="script-box">
+    <div class="label">Script nói</div>
+    "Nhóm đã tự nhận thức các hạn chế. Nếu thầy cô phản biện, đây là các điểm chúng em ghi rõ trong mục 8."
+  </div>
+
+  <div class="grid grid-2">
+    <div>
+      <h3>Hạn chế</h3>
+      <div class="timeline">
+        <div class="tl-item">
+          <div class="tl-title">Popularity chỉ là ảnh chụp 1 thời điểm</div>
+          <div class="tl-desc">Không phải xu hướng theo thời gian; bài mới hoặc từng nổi đều có thể thấp.</div>
+        </div>
+        <div class="tl-item">
+          <div class="tl-title">Thiếu yếu tố quan trọng</div>
+          <div class="tl-desc">Không có thông tin nghệ sĩ, quảng bá, playlist, ngày phát hành.</div>
+        </div>
+        <div class="tl-item">
+          <div class="tl-title">Mỗi bài chỉ giữ 1 thể loại</div>
+          <div class="tl-desc">Do bỏ trùng track_id → kết quả genre phụ thuộc cách gán.</div>
+        </div>
+        <div class="tl-item">
+          <div class="tl-title">Giữ popularity = 0</div>
+          <div class="tl-desc">Quyết định nhóm; gồm cả bài mới và bài rất ít nghe (~14%).</div>
+        </div>
+        <div class="tl-item">
+          <div class="tl-title">Định nghĩa hit là quy ước</div>
+          <div class="tl-desc">Top 10% (popularity ≥ 61); đổi ngưỡng sẽ đổi kết quả phân loại.</div>
+        </div>
+        <div class="tl-item">
+          <div class="tl-title">Chỉ mô tả mối liên quan</div>
+          <div class="tl-desc">Tương quan/mô hình không chứng minh nhân quả.</div>
+        </div>
+        <div class="tl-item">
+          <div class="tl-title">Chưa tinh chỉnh siêu tham số</div>
+          <div class="tl-desc">Chia train/test 1 lần (random_state=42), chưa cross-validation.</div>
+        </div>
+        <div class="tl-item">
+          <div class="tl-title">Dữ liệu Kaggle</div>
+          <div class="tl-desc">114 thể loại, ~85K bài sau sạch – chưa chắc đại diện toàn Spotify.</div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <h3>Hướng phát triển</h3>
+      <div class="card" style="margin-bottom:12px">
+        Bổ sung biến về <strong>nghệ sĩ, ngày phát hành, playlist</strong>
+      </div>
+      <div class="card" style="margin-bottom:12px">
+        Dùng dữ liệu <strong>popularity theo thời gian</strong>
+      </div>
+      <div class="card" style="margin-bottom:12px">
+        Xử lý trường hợp một bài thuộc <strong>nhiều thể loại</strong>
+      </div>
+      <div class="card" style="margin-bottom:12px">
+        Đánh giá bằng <strong>cross-validation</strong> và thử thêm mô hình khác
+      </div>
+      <div class="tip" style="margin-top:20px">
+        <strong>Cách trả lời khi bị hỏi khó:</strong><br>
+        "Đây là hạn chế nhóm đã ghi ở mục 8 – cảm ơn thầy/cô đã chỉ ra, đây là hướng phát triển tiếp theo."
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== SLIDE 9: Q&A ========== -->
+<section class="slide" id="slide-9">
+  <div class="slide-header">
+    <span class="slide-badge">PHẦN 9 · CHUẨN BỊ PHẢN BIỆN</span>
+    <h2>Câu hỏi ôn tập & Trả lời gọn</h2>
+  </div>
+
+  <div class="qa-item">
+    <div class="q">❓ Vì sao popularity ≥ 61 là hit?</div>
+    <div class="a">61 = phân vị 90% của dữ liệu sạch; hit = top 10% cao nhất theo định nghĩa nhóm.</div>
+  </div>
+  <div class="qa-item">
+    <div class="q">❓ Vì sao r thấp nhưng Random Forest tốt hơn Linear Regression?</div>
+    <div class="a">Pearson chỉ đo quan hệ tuyến tính; Random Forest khai thác quan hệ phi tuyến và tương tác giữa các biến.</div>
+  </div>
+  <div class="qa-item">
+    <div class="q">❓ R² = 0,190 nghĩa là gì?</div>
+    <div class="a">Giải thích 19% biến thiên popularity – không phải đoán đúng 19% số bài.</div>
+  </div>
+  <div class="qa-item">
+    <div class="q">❓ Vì sao AUC = 0,804 mà Precision chỉ 23,4%?</div>
+    <div class="a">AUC đánh giá khả năng xếp hạng qua nhiều ngưỡng; Precision phụ thuộc ngưỡng chọn và tỷ lệ hit rất thấp (~10%).</div>
+  </div>
+  <div class="qa-item">
+    <div class="q">❓ Vì sao thêm thể loại lại giúp?</div>
+    <div class="a">Thể loại chứa thông tin phân biệt nhóm mà đặc điểm âm thanh chưa thể hiện hết – popularity phân hóa mạnh theo genre.</div>
+  </div>
+  <div class="qa-item">
+    <div class="q">❓ Accuracy 72,9% đã đủ tốt chưa?</div>
+    <div class="a">Chưa. Mô hình luôn đoán "không hit" đạt ~89,8% Accuracy nhưng Recall = 0. Phải xem Precision, Recall, AUC.</div>
+  </div>
+  <div class="qa-item">
+    <div class="q">❓ Kết luận chính của đề tài?</div>
+    <div class="a"><strong>Đặc điểm âm thanh liên quan yếu với popularity; thể loại giúp cải thiện mô hình rõ rệt nhưng vẫn chưa đủ để dự báo chắc chắn. Chỉ dùng để sàng lọc ban đầu.</strong></div>
+  </div>
+
+  <div style="margin-top:40px; text-align:center; padding:40px; background:var(--card); border-radius:16px; border:1px solid var(--border)">
+    <div style="font-size:28px; font-weight:800; margin-bottom:8px">Cảm ơn thầy cô và các bạn đã lắng nghe</div>
+    <div style="color:var(--muted); font-size:16px">Nhóm 4 sẵn sàng nhận câu hỏi</div>
+    <div style="margin-top:20px">
+      <span class="pill pill-green">Spotify Hit Analysis</span>
+      <span class="pill pill-blue">TOKT1138</span>
+      <span class="pill pill-purple">NEU · 12/11/2026</span>
+    </div>
+  </div>
+</section>
+
+</div><!-- /main -->
+
+<!-- CONTROLS -->
+<div class="controls">
+  <button class="btn secondary" onclick="prevSlide()">← Trước</button>
+  <span class="page-ind" id="pageInd">1 / 10</span>
+  <button class="btn" onclick="nextSlide()">Tiếp →</button>
+</div>
+
+<script>
+// ========== SLIDE NAVIGATION ==========
+const slides = document.querySelectorAll('.slide');
+const navItems = document.querySelectorAll('.nav-item');
+let current = 0;
+const total = slides.length;
+
+function goTo(n) {
+  if (n < 0 || n >= total) return;
+  slides[current].classList.remove('active');
+  navItems[current].classList.remove('active');
+  current = n;
+  slides[current].classList.add('active');
+  navItems[current].classList.add('active');
+  document.getElementById('pageInd').textContent = (current + 1) + ' / ' + total;
+  document.getElementById('progressFill').style.width = ((current + 1) / total * 100) + '%';
+  window.scrollTo(0, 0);
+  // Re-init charts that might need it
+  if (typeof Chart !== 'undefined') initChartsForSlide(current);
+}
+
+function nextSlide() { goTo(current + 1); }
+function prevSlide() { goTo(current - 1); }
+
+navItems.forEach(item => {
+  item.addEventListener('click', e => {
+    e.preventDefault();
+    goTo(+item.dataset.slide);
+    document.querySelector('.sidebar').classList.remove('open');
+  });
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); nextSlide(); }
+  if (e.key === 'ArrowLeft') { e.preventDefault(); prevSlide(); }
+});
+
+// ========== CHARTS ==========
+const chartDefaults = {
+  color: '#94a3b8',
+  borderColor: '#334155',
+  font: { family: 'Inter' }
+};
+Chart.defaults.color = chartDefaults.color;
+Chart.defaults.borderColor = chartDefaults.borderColor;
+Chart.defaults.font.family = 'Inter';
+
+const charts = {};
+
+function initChartsForSlide(idx) {
+  // Only create once
+  if (idx === 2 && !charts.cleaning) {
+    charts.cleaning = new Chart(document.getElementById('chartCleaning'), {
+      type: 'bar',
+      data: {
+        labels: ['Gốc', 'Bỏ thiếu', 'Bỏ trùng', 'Bỏ vô lý', 'Bỏ IQR'],
+        datasets: [{
+          label: 'Số dòng',
+          data: [114000, 113999, 89740, 89583, 85361],
+          backgroundColor: ['#3b82f6', '#3b82f6', '#f59e0b', '#3b82f6', '#1db954'],
+          borderRadius: 6,
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: { beginAtZero: false, min: 80000, ticks: { callback: v => (v/1000) + 'K' } }
+        }
+      }
+    });
+  }
+
+  if (idx === 3 && !charts.hitPie) {
+    charts.hitPie = new Chart(document.getElementById('chartHitPie'), {
+      type: 'doughnut',
+      data: {
+        labels: ['Không hit (89,8%)', 'Hit (10,2%)'],
+        datasets: [{
+          data: [76658, 8703],
+          backgroundColor: ['#334155', '#1db954'],
+          borderWidth: 0,
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { position: 'bottom' } }
+      }
+    });
+  }
+
+  if (idx === 4 && !charts.popHist) {
+    // Approximate histogram from description
+    const bins = [0,5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85,90,95,100];
+    const counts = [11000,3200,3800,4200,4800,5200,5500,5800,5400,4800,4200,3600,2800,1800,1200,700,400,200,100,50,20];
+    charts.popHist = new Chart(document.getElementById('chartPopHist'), {
+      type: 'bar',
+      data: {
+        labels: bins.map(String),
+        datasets: [{
+          label: 'Số bài',
+          data: counts,
+          backgroundColor: bins.map(b => b >= 61 ? '#1db954' : '#3b82f6'),
+          borderRadius: 3,
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: false },
+          annotation: undefined,
+        },
+        scales: {
+          x: { title: { display: true, text: 'Popularity' } },
+          y: { title: { display: true, text: 'Số bài hát' }, ticks: { callback: v => v >= 1000 ? (v/1000)+'K' : v } }
+        }
+      }
+    });
+
+    charts.genre = new Chart(document.getElementById('chartGenre'), {
+      type: 'bar',
+      data: {
+        labels: ['k-pop','pop-film','metal','chill','latino','sad','grunge','indian','anime','emo'],
+        datasets: [{
+          label: 'Popularity TB',
+          data: [59.9, 59.3, 56.5, 53.2, 52.1, 51.0, 50.2, 49.5, 48.8, 48.1],
+          backgroundColor: '#1db954',
+          borderRadius: 4,
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: { x: { min: 40, max: 65 } }
+      }
+    });
+
+    charts.explicit = new Chart(document.getElementById('chartExplicit'), {
+      type: 'bar',
+      data: {
+        labels: ['Không explicit', 'Explicit'],
+        datasets: [{
+          label: 'Mean popularity',
+          data: [33.16, 37.01],
+          backgroundColor: ['#3b82f6', '#f59e0b'],
+          borderRadius: 8,
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: { y: { min: 25, max: 45 } }
+      }
+    });
+  }
+
+  if (idx === 5 && !charts.corr) {
+    charts.corr = new Chart(document.getElementById('chartCorr'), {
+      type: 'bar',
+      data: {
+        labels: ['instrumentalness','speechiness','acousticness','valence','liveness','tempo','energy','duration_min','loudness','danceability'],
+        datasets: [{
+          label: 'r với popularity',
+          data: [-0.110, -0.047, -0.042, -0.018, -0.017, 0.007, 0.013, 0.031, 0.061, 0.069],
+          backgroundColor: [-0.110, -0.047, -0.042, -0.018, -0.017, 0.007, 0.013, 0.031, 0.061, 0.069].map(v => v < 0 ? '#ef4444' : '#1db954'),
+          borderRadius: 4,
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: { x: { min: -0.15, max: 0.1 } }
+      }
+    });
+
+    charts.hitExplicit = new Chart(document.getElementById('chartHitExplicit'), {
+      type: 'bar',
+      data: {
+        labels: ['Không explicit', 'Explicit'],
+        datasets: [{
+          label: 'Tỷ lệ hit (%)',
+          data: [9.6, 16.7],
+          backgroundColor: ['#3b82f6', '#f59e0b'],
+          borderRadius: 8,
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: { y: { max: 25, ticks: { callback: v => v + '%' } } }
+      }
+    });
+
+    charts.hitGenre = new Chart(document.getElementById('chartHitGenre'), {
+      type: 'bar',
+      data: {
+        labels: ['metal','pop','k-pop','pop-film','latino','Chung'],
+        datasets: [{
+          label: 'Tỷ lệ hit (%)',
+          data: [59.7, 57.1, 52.9, 46.1, 43.3, 10.2],
+          backgroundColor: ['#1db954','#1db954','#1db954','#22d3ee','#22d3ee','#64748b'],
+          borderRadius: 6,
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: { y: { max: 70, ticks: { callback: v => v + '%' } } }
+      }
+    });
+  }
+
+  if (idx === 6 && !charts.r2) {
+    charts.r2 = new Chart(document.getElementById('chartR2'), {
+      type: 'bar',
+      data: {
+        labels: ['Linear Reg', 'Decision Tree', 'Random Forest', 'RF + Genre'],
+        datasets: [{
+          label: 'R²',
+          data: [0.030, 0.075, 0.154, 0.190],
+          backgroundColor: ['#64748b','#64748b','#3b82f6','#1db954'],
+          borderRadius: 8,
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: { y: { max: 0.25, ticks: { callback: v => v.toFixed(2) } } }
+      }
+    });
+
+    charts.importance = new Chart(document.getElementById('chartImportance'), {
+      type: 'bar',
+      data: {
+        labels: ['acousticness','duration_min','danceability','instrumentalness','valence','loudness','energy','tempo','speechiness','liveness'],
+        datasets: [{
+          label: 'Importance',
+          data: [0.151, 0.110, 0.104, 0.101, 0.095, 0.088, 0.082, 0.075, 0.052, 0.042],
+          backgroundColor: '#a78bfa',
+          borderRadius: 4,
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: { x: { max: 0.18 } }
+      }
+    });
+
+    charts.auc = new Chart(document.getElementById('chartAUC'), {
+      type: 'bar',
+      data: {
+        labels: ['Logistic Reg', 'Random Forest', 'RF + Genre'],
+        datasets: [{
+          label: 'AUC',
+          data: [0.662, 0.709, 0.804],
+          backgroundColor: ['#64748b','#3b82f6','#1db954'],
+          borderRadius: 8,
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: { y: { min: 0.5, max: 1.0, ticks: { callback: v => v.toFixed(2) } } }
+      }
+    });
+  }
+}
+
+// Init first charts that are visible on load (slide 0 has none needing chart)
+goTo(0);
+</script>
+</body>
+</html>
